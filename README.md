@@ -6,7 +6,7 @@ Nap requires Go version 1.8 or greater.
 
 ## Install
 ```shell
-$ go get github.com/tsenart/nap
+$ go get github.com/kidbrains/nap
 ```
 
 ## Usage
@@ -16,7 +16,8 @@ package main
 import (
   "log"
 
-  "github.com/tsenart/nap"
+  "github.com/kidbrains/nap"
+
   _ "github.com/go-sql-driver/mysql" // Any sql.DB works
 )
 
@@ -82,3 +83,7 @@ func main() {
 
 ## License
 See [LICENSE](LICENSE)
+
+## Thanks
+
+* [Tomás Senart](https://github.com/tsenart)
