@@ -50,7 +50,7 @@ func (db *DB) Driver() driver.Driver {
 
 // Begin starts a transaction on the master. The isolation level is dependent on the driver.
 func (db *DB) Begin() (*sql.Tx, error) {
-	return db.Master().Begin()
+	return db.BeginTx(context.Background(), nil)
 }
 
 // BeginTx starts a transaction with the provided context on the master.
@@ -66,7 +66,7 @@ func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 // The args are for any placeholder parameters in the query.
 // Exec uses the master as the underlying physical db.
 func (db *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return db.Master().Exec(query, args...)
+	return db.ExecContext(context.Background(), query, args...)
 }
 
 // ExecContext executes a query without returning any rows.
@@ -79,9 +79,7 @@ func (db *DB) ExecContext(ctx context.Context, query string, args ...interface{}
 // Ping verifies if a connection to each physical database is still alive,
 // establishing a connection if necessary.
 func (db *DB) Ping() error {
-	return scatter(len(db.pdbs), func(i int) error {
-		return db.pdbs[i].Ping()
-	})
+	return db.PingContext(context.Background())
 }
 
 // PingContext verifies if a connection to each physical database is still
@@ -95,18 +93,7 @@ func (db *DB) PingContext(ctx context.Context) error {
 // Prepare creates a prepared statement for later queries or executions
 // on each physical database, concurrently.
 func (db *DB) Prepare(query string) (Stmt, error) {
-	stmts := make([]*sql.Stmt, len(db.pdbs))
-
-	err := scatter(len(db.pdbs), func(i int) (err error) {
-		stmts[i], err = db.pdbs[i].Prepare(query)
-		return err
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &stmt{db: db, stmts: stmts}, nil
+	return db.PrepareContext(context.Background(), query)
 }
 
 // PrepareContext creates a prepared statement for later queries or executions
@@ -125,6 +112,7 @@ func (db *DB) PrepareContext(ctx context.Context, query string) (Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &stmt{db: db, stmts: stmts}, nil
 }
 
@@ -132,7 +120,7 @@ func (db *DB) PrepareContext(ctx context.Context, query string) (Stmt, error) {
 // The args are for any placeholder parameters in the query.
 // Query uses a slave as the physical db.
 func (db *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	return db.Slave().Query(query, args...)
+	return db.QueryContext(context.Background(), query, args...)
 }
 
 // QueryContext executes a query that returns rows, typically a SELECT.
@@ -147,7 +135,7 @@ func (db *DB) QueryContext(ctx context.Context, query string, args ...interface{
 // Errors are deferred until Row's Scan method is called.
 // QueryRow uses a slave as the physical db.
 func (db *DB) QueryRow(query string, args ...interface{}) *sql.Row {
-	return db.Slave().QueryRow(query, args...)
+	return db.QueryRowContext(context.Background(), query, args...)
 }
 
 // QueryRowContext executes a query that is expected to return at most one row.
@@ -204,5 +192,6 @@ func (db *DB) slave(n int) int {
 	if n <= 1 {
 		return 0
 	}
+
 	return int(1 + (atomic.AddUint64(&db.count, 1) % uint64(n-1)))
 }

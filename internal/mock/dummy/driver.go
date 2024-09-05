@@ -1,21 +1,19 @@
 package dummy
 
 import (
+	"context"
 	"database/sql/driver"
 	"fmt"
 )
 
 // Driver of dummy db.
-type Driver struct {
-	isOpen bool
-	Conn   *Conn
-}
+type Driver struct{}
 
 var (
 	// Compile time validation that our types implement the expected interfaces
-	_ driver.Driver = (*Driver)(nil)
+	_ driver.Driver = Driver{}
 
-	ErrDriverClosed = fmt.Errorf("%w database is closed", ErrDummy)
+	ErrInvalidDSN = fmt.Errorf("%w invalid dsn", ErrDummy)
 )
 
 // Open returns a new connection to the database.
@@ -27,22 +25,25 @@ var (
 //
 // The returned connection is only used by one goroutine at a
 // time.
-func (d *Driver) Open(dsn string) (driver.Conn, error) {
-	d.isOpen = true
-	d.Conn = &Conn{
-		isOpen: true,
+func (d Driver) Open(dsn string) (driver.Conn, error) {
+	c, err := d.OpenConnector(dsn)
+	if err != nil {
+		return nil, err
 	}
 
-	return d.Conn, nil
+	return c.Connect(context.Background())
 }
 
-// Close database connection.
-func (d *Driver) Close() error {
-	if !d.isOpen {
-		return ErrDriverClosed
+// OpenConnector must parse the name in the same format that Driver.Open
+// parses the name parameter.
+func (d Driver) OpenConnector(dsn string) (driver.Connector, error) {
+	if dsn == "" {
+		return nil, ErrInvalidDSN
 	}
 
-	d.isOpen = false
+	c := &Connector{
+		DSN: dsn,
+	}
 
-	return nil
+	return c, nil
 }

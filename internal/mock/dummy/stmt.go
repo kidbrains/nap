@@ -7,7 +7,9 @@ import (
 )
 
 type Stmt struct {
-	isOpen bool
+	Closed bool
+	Result *Result
+	Rows   *Rows
 }
 
 var (
@@ -22,11 +24,11 @@ var (
 // Drivers must ensure all network calls made by Close
 // do not block indefinitely (e.g. apply a timeout).
 func (s *Stmt) Close() error {
-	if !s.isOpen {
+	if s.Closed {
 		return ErrStmtClosed
 	}
 
-	s.isOpen = false
+	s.Closed = true
 
 	return nil
 }
@@ -53,7 +55,9 @@ func (s *Stmt) Exec(args []driver.Value) (driver.Result, error) {
 // ExecContext executes a query that doesn't return rows, such
 // as an INSERT or UPDATE.
 func (s *Stmt) ExecContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
-	return &Result{}, nil
+	s.Result = &Result{}
+
+	return s.Result, nil
 }
 
 // Query executes a query that may return rows, such as a SELECT.
@@ -65,5 +69,7 @@ func (s *Stmt) Query(args []driver.Value) (driver.Rows, error) {
 
 // QueryContext executes a query that may return rows, such as a SELECT.
 func (s *Stmt) QueryContext(ctx context.Context, args []driver.Value) (driver.Rows, error) {
-	return &Rows{isOpen: true}, nil
+	s.Rows = &Rows{}
+
+	return s.Rows, nil
 }

@@ -7,7 +7,7 @@ import (
 
 // Tx implements transaction.
 type Tx struct {
-	isOpen bool
+	Closed bool
 }
 
 var (
@@ -19,22 +19,22 @@ var (
 // Begin implements the DB interface.
 // Commit implements the Tx interface.
 func (tx *Tx) Commit() error {
-	if !tx.isOpen {
+	if tx.Closed {
 		return ErrTxDone
 	}
 
-	tx.isOpen = false
+	tx.Closed = true
 
 	return nil
 }
 
 // Rollback implements the Tx interface.
 func (tx *Tx) Rollback() error {
-	if !tx.isOpen {
+	if tx.Closed {
 		return ErrTxDone
 	}
 
-	tx.isOpen = false
+	tx.Closed = true
 
 	return nil
 }

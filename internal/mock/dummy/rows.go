@@ -6,7 +6,7 @@ import (
 )
 
 type Rows struct {
-	isOpen bool
+	Closed bool
 }
 
 var (
@@ -23,11 +23,11 @@ func (r *Rows) Columns() []string { return nil }
 
 // Close closes the rows iterator.
 func (r *Rows) Close() error {
-	if !r.isOpen {
+	if r.Closed {
 		return ErrRowsClosed
 	}
 
-	r.isOpen = false
+	r.Closed = true
 
 	return nil
 }
@@ -42,9 +42,9 @@ func (r *Rows) Close() error {
 // should be taken when closing Rows not to modify
 // a buffer held in dest.
 func (r *Rows) Next(dest []driver.Value) error {
-	if r.isOpen {
-		return nil
+	if r.Closed {
+		return ErrRowsClosed
 	}
 
-	return ErrRowsClosed
+	return nil
 }

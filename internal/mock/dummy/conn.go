@@ -8,7 +8,11 @@ import (
 
 // Conn - connection to dummydb.
 type Conn struct {
-	isOpen bool
+	Closed bool
+	Result *Result
+	Rows   *Rows
+	Stmt   *Stmt
+	Tx     *Tx
 }
 
 var (
@@ -27,7 +31,9 @@ func (c *Conn) Prepare(query string) (driver.Stmt, error) {
 // context is for the preparation of the statement,
 // it must not store the context within the statement itself.
 func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	return &Stmt{isOpen: true}, nil
+	c.Stmt = &Stmt{}
+
+	return c.Stmt, nil
 }
 
 // Close invalidates and potentially stops any current
@@ -42,11 +48,11 @@ func (c *Conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 // Drivers must ensure all network calls made by Close
 // do not block indefinitely (e.g. apply a timeout).
 func (c *Conn) Close() error {
-	if !c.isOpen {
+	if c.Closed {
 		return ErrConnClosed
 	}
 
-	c.isOpen = false
+	c.Closed = true
 
 	return nil
 }
@@ -71,5 +77,52 @@ func (c *Conn) Begin() (driver.Tx, error) {
 // value is true to either set the read-only transaction property if supported
 // or return an error if it is not supported.
 func (c *Conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return &Tx{isOpen: true}, nil
+	c.Tx = &Tx{}
+
+	return c.Tx, nil
+}
+
+// Ping - check database connection alive.
+func (c *Conn) Ping(ctx context.Context) error {
+	if c.Closed {
+		return ErrConnClosed
+	}
+
+	return nil
+}
+
+// ExecContext executes a query that doesn't return rows, such
+// as an INSERT or UPDATE.
+func (c *Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	c.Result = &Result{}
+
+	return c.Result, ctx.Err()
+}
+
+// NamedValue convert []driver.Value into []driver.NamedValue.
+func (c *Conn) NamedValue(args []driver.Value) []driver.NamedValue {
+	named := make([]driver.NamedValue, len(args))
+	for i, arg := range args {
+		named[i] = driver.NamedValue{Value: arg}
+	}
+
+	return named
+}
+
+// Exec executes a query that doesn't return rows, such
+// as an INSERT or UPDATE.
+func (c *Conn) Exec(query string, args []driver.Value) (driver.Result, error) {
+	return c.ExecContext(context.Background(), query, c.NamedValue(args))
+}
+
+// QueryContext executes a query that may return rows, such as a SELECT.
+func (c *Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	c.Rows = &Rows{}
+
+	return c.Rows, ctx.Err()
+}
+
+// Query executes a query that may return rows, such as a SELECT.
+func (c *Conn) Query(query string, args []driver.Value) (driver.Rows, error) {
+	return c.QueryContext(context.Background(), query, c.NamedValue(args))
 }
